@@ -20,8 +20,12 @@ type Context struct {
 	next func(c *Context) error
 }
 
-func (c *Context) Param(key string) string {
+func (c *Context) PathParam(key string) string {
 	return chi.URLParam(c.request, key)
+}
+
+func (c *Context) QueryParam(key string) string {
+	return c.request.URL.Query().Get(key)
 }
 
 func (c *Context) Next() error {
