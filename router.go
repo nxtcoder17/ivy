@@ -69,6 +69,10 @@ func (r *Router) Head(path string, handlers ...HandlerFn) {
 	r.register(http.MethodHead, path, handlers...)
 }
 
+func (r *Router) Method(method string, path string, handlers ...HandlerFn) {
+	r.register(method, path, handlers...)
+}
+
 func (r *Router) Mount(path string, h http.Handler) {
 	r.mux.Mount(path, h)
 }
