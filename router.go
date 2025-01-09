@@ -19,12 +19,22 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }
 
-type HandlerFn func(c *Context) error
+var _ http.Handler = (*Router)(nil)
 
-func (r *Router) register(method string, path string, handlers ...HandlerFn) {
+type Handler func(c *Context) error
+
+// ServeHTTP implements http.Handler.
+func (hf Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	hf(&Context{Context: r.Context(), request: r, response: w})
+}
+
+var _ http.Handler = (Handler)(nil)
+
+func (r *Router) register(method string, path string, handlers ...Handler) {
 	if handlers == nil {
 		return
 	}
+
 	idx := 0
 	next := func(c *Context) error {
 		if idx == len(handlers)-1 {
@@ -35,41 +45,43 @@ func (r *Router) register(method string, path string, handlers ...HandlerFn) {
 	}
 
 	r.mux.MethodFunc(method, path, func(w http.ResponseWriter, req *http.Request) {
-		ctx := &Context{
-			Context:     req.Context(),
-			request:     req,
-			response:    w,
+		if err := handlers[0](&Context{
+			Context: req.Context(),
+
+			request:  req,
+			response: w,
+
 			jsonEncoder: r.JSONEncoder,
 			jsonDecoder: r.JSONDecoder,
-			next:        next,
-		}
-		if err := handlers[0](ctx); err != nil {
+
+			next: next,
+		}); err != nil {
 			r.ErrorHandler(err, w, req)
 		}
 	})
 }
 
-func (r *Router) Get(path string, handlers ...HandlerFn) {
+func (r *Router) Get(path string, handlers ...Handler) {
 	r.register(http.MethodGet, path, handlers...)
 }
 
-func (r *Router) Post(path string, handlers ...HandlerFn) {
+func (r *Router) Post(path string, handlers ...Handler) {
 	r.register(http.MethodPost, path, handlers...)
 }
 
-func (r *Router) Put(path string, handlers ...HandlerFn) {
+func (r *Router) Put(path string, handlers ...Handler) {
 	r.register(http.MethodPut, path, handlers...)
 }
 
-func (r *Router) Delete(path string, handlers ...HandlerFn) {
+func (r *Router) Delete(path string, handlers ...Handler) {
 	r.register(http.MethodDelete, path, handlers...)
 }
 
-func (r *Router) Head(path string, handlers ...HandlerFn) {
+func (r *Router) Head(path string, handlers ...Handler) {
 	r.register(http.MethodHead, path, handlers...)
 }
 
-func (r *Router) Method(method string, path string, handlers ...HandlerFn) {
+func (r *Router) Method(method string, path string, handlers ...Handler) {
 	chi.RegisterMethod(method)
 	r.register(method, path, handlers...)
 }

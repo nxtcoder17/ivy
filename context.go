@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -18,68 +19,40 @@ type Context struct {
 	jsonDecoder JSONDecoder
 
 	next func(c *Context) error
+
+	kv map[string]any
 }
 
+// PathParam is like this `id` in this route path `/resource/{id}`
 func (c *Context) PathParam(key string) string {
 	return chi.URLParam(c.request, key)
 }
 
+// QueryParam is like this `id` in this route path `/resource?id=hello-world`
 func (c *Context) QueryParam(key string) string {
 	return c.request.URL.Query().Get(key)
 }
 
+// Calling Next() calls the next middleware in request handler chain
 func (c *Context) Next() error {
-	return c.next(c)
-}
-
-func (c *Context) Writer() io.Writer {
-	return c.response
-}
-
-func (c *Context) SendStatus(code int) error {
-	c.response.WriteHeader(code)
-	return nil
-}
-
-func (c *Context) SendString(s string) error {
-	_, err := c.response.Write([]byte(s))
-	return err
-}
-
-func (c *Context) SendJSON(s any) error {
-	c.response.Header().Add("Content-Type", "application/json")
-	b, err := c.jsonEncoder(s)
-	if err != nil {
-		// http.Error(c.response, err.Error(), 500)
-		return err
+	if c.next != nil {
+		return c.next(c)
 	}
-	_, err = c.response.Write(b)
-	return err
-}
-
-func (c *Context) SendHTML(s []byte) error {
-	c.response.Header().Add("Content-Type", "text/html")
-	_, err := c.response.Write(s)
-	return err
-}
-
-func (c *Context) SendFile(fp string) error {
-	http.ServeFile(c.response, c.request, fp)
 	return nil
 }
 
-// JSON is alias for SendJSON
-func (c *Context) JSON(s any) error {
-	return c.SendJSON(s)
-}
-
-// section: headers and cookies
+// SetHeaders() set http response headers
 func (c *Context) SetHeader(key, value string) {
 	c.response.Header().Set(key, value)
 }
 
+// GetHeaders() is http request headers
 func (c *Context) GetHeaders() http.Header {
 	return c.request.Header
+}
+
+func (c *Context) URL() *url.URL {
+	return c.request.URL
 }
 
 func (c *Context) SetCookie(cookie *http.Cookie) {
@@ -96,10 +69,103 @@ func (c *Context) AllCookies() []*http.Cookie {
 
 func (c *Context) ClearCookie(key string) {
 	http.SetCookie(c.response, &http.Cookie{
-		Name:     key,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
+		Name:   key,
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
 	})
+}
+
+func (c *Context) Writer() io.Writer {
+	return c.response
+}
+
+// JSON is alias for SendJSON
+func (c *Context) JSON(s any) error {
+	return c.SendJSON(s)
+}
+
+// Set sets a key into the request level Key-Value store
+func (c *Context) Set(k string, v any) {
+	if c.kv == nil {
+		c.kv = make(map[string]any, 1)
+	}
+	c.kv[k] = v
+}
+
+// get looks up a key into the request level Key-Value store
+func (c *Context) Get(k string) (any, bool) {
+	v, ok := c.kv[k]
+	return v, ok
+}
+
+// :SECTION: request writers
+
+func (c *Context) Body() io.ReadCloser {
+	return c.request.Body
+}
+
+func (c *Context) ParseBodyInto(v any) error {
+	b, err := io.ReadAll(c.request.Body)
+	if err != nil {
+		return err
+	}
+
+	return c.jsonDecoder(b, v)
+}
+
+// BodyParser is alias for ParseBodyInto
+func (c *Context) BodyParser(v any) error {
+	return c.ParseBodyInto(v)
+}
+
+// :SECTION: response writers
+
+// Write implements io.Writer.
+func (c *Context) Write(p []byte) (n int, err error) {
+	return c.response.Write(p)
+}
+
+var _ io.Writer = (*Context)(nil)
+
+func (c *Context) SendStatus(code int) error {
+	c.response.WriteHeader(code)
+	return nil
+}
+
+func (c *Context) SendBytes(b []byte) error {
+	_, err := c.response.Write(b)
+	return err
+}
+
+func (c *Context) Flush() {
+	if v, ok := c.response.(http.Flusher); ok {
+		v.Flush()
+	}
+}
+
+func (c *Context) SendString(s string) error {
+	_, err := c.response.Write([]byte(s))
+	return err
+}
+
+func (c *Context) SendJSON(s any) error {
+	c.response.Header().Add("Content-Type", "application/json")
+	b, err := c.jsonEncoder(s)
+	if err != nil {
+		return err
+	}
+	_, err = c.response.Write(b)
+	return err
+}
+
+func (c *Context) SendHTML(s []byte) error {
+	c.response.Header().Add("Content-Type", "text/html")
+	_, err := c.response.Write(s)
+	return err
+}
+
+func (c *Context) SendFile(fp string) error {
+	http.ServeFile(c.response, c.request, fp)
+	return nil
 }
