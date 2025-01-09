@@ -18,7 +18,8 @@ type Context struct {
 	jsonEncoder JSONEncoder
 	jsonDecoder JSONDecoder
 
-	next func(c *Context) error
+	handlerIdx int
+	next       func(c *Context) error
 
 	kv map[string]any
 }
@@ -35,10 +36,17 @@ func (c *Context) QueryParam(key string) string {
 
 // Calling Next() calls the next middleware in request handler chain
 func (c *Context) Next() error {
-	if c.next != nil {
-		return c.next(c)
-	}
-	return nil
+	next := c.next
+	return next(&Context{
+		Context:     c.request.Context(),
+		request:     c.request,
+		response:    c.response,
+		jsonEncoder: c.jsonEncoder,
+		jsonDecoder: c.jsonDecoder,
+		handlerIdx:  c.handlerIdx + 1,
+		next:        next,
+		kv:          c.kv,
+	})
 }
 
 // SetHeaders() set http response headers

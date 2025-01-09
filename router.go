@@ -1,7 +1,7 @@
 package ivy
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/goccy/go-json"
@@ -35,17 +35,22 @@ func (r *Router) register(method string, path string, handlers ...Handler) {
 		return
 	}
 
-	idx := 0
 	next := func(c *Context) error {
-		if idx == len(handlers)-1 {
-			return fmt.Errorf("nothing returned from handler")
+		// idx += 1
+		// if idx == len(handlers) {
+		// 	slog.Warn("middelwares Out-Of-Bounds | no response written", "method", method, "path", path, "len(handlers)", len(handlers))
+		// 	return nil
+		// }
+
+		if c.handlerIdx > len(handlers) {
+			slog.Warn("middelwares Out-Of-Bounds | no response written", "method", method, "path", path, "len(handlers)", len(handlers), "current.index", c.handlerIdx)
 		}
-		idx += 1
-		return handlers[idx](c)
+
+		return handlers[c.handlerIdx](c)
 	}
 
 	r.mux.MethodFunc(method, path, func(w http.ResponseWriter, req *http.Request) {
-		if err := handlers[0](&Context{
+		ctx := Context{
 			Context: req.Context(),
 
 			request:  req,
@@ -54,8 +59,11 @@ func (r *Router) register(method string, path string, handlers ...Handler) {
 			jsonEncoder: r.JSONEncoder,
 			jsonDecoder: r.JSONDecoder,
 
-			next: next,
-		}); err != nil {
+			handlerIdx: 0,
+			next:       next,
+		}
+
+		if err := handlers[0](&ctx); err != nil {
 			r.ErrorHandler(err, w, req)
 		}
 	})
