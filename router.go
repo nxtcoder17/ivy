@@ -70,6 +70,7 @@ func (r *Router) Head(path string, handlers ...HandlerFn) {
 }
 
 func (r *Router) Method(method string, path string, handlers ...HandlerFn) {
+	chi.RegisterMethod(method)
 	r.register(method, path, handlers...)
 }
 

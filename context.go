@@ -73,20 +73,6 @@ func (c *Context) JSON(s any) error {
 	return c.SendJSON(s)
 }
 
-func (c *Context) ParseBodyInto(v any) error {
-	b, err := io.ReadAll(c.request.Body)
-	if err != nil {
-		return err
-	}
-
-	return c.jsonDecoder(b, v)
-}
-
-// BodyParser is alias for ParseBodyInto
-func (c *Context) BodyParser(v any) error {
-	return c.ParseBodyInto(v)
-}
-
 // section: headers and cookies
 func (c *Context) SetHeader(key, value string) {
 	c.response.Header().Set(key, value)
