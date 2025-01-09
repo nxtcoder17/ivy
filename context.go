@@ -93,8 +93,15 @@ func (c *Context) Set(k string, v any) {
 	c.kv[k] = v
 }
 
-// get looks up a key into the request level Key-Value store
-func (c *Context) Get(k string) (any, bool) {
+// get fetches the value of key in request level KV store
+// in case, key is not present default value is returned
+func (c *Context) Get(k string) any {
+	return c.kv[k]
+}
+
+// lookup fetches the value of key in request level KV store
+// in case default value is not present, ok will be false
+func (c *Context) Lookup(k string) (value any, ok bool) {
 	v, ok := c.kv[k]
 	return v, ok
 }
