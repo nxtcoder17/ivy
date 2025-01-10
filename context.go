@@ -21,7 +21,32 @@ type Context struct {
 	handlerIdx int
 	next       func(c *Context) error
 
-	kv map[string]any
+	KV KV
+}
+
+type KV struct {
+	m map[string]any
+}
+
+// Set sets a key into the request level Key-Value store
+func (kv *KV) Set(k string, v any) {
+	if kv.m == nil {
+		kv.m = make(map[string]any, 1)
+	}
+	kv.m[k] = v
+}
+
+// Get fetches the value of key in request level KV store
+// in case, key is not present default value is returned
+func (kv *KV) Get(k string) any {
+	return kv.m[k]
+}
+
+// Lookup fetches the value of key in request level KV store
+// in case default value is not present, ok will be false
+func (kv *KV) Lookup(k string) (any, bool) {
+	v, ok := kv.m[k]
+	return v, ok
 }
 
 // PathParam is like this `id` in this route path `/resource/{id}`
@@ -36,17 +61,11 @@ func (c *Context) QueryParam(key string) string {
 
 // Calling Next() calls the next middleware in request handler chain
 func (c *Context) Next() error {
-	next := c.next
-	return next(&Context{
-		Context:     c.request.Context(),
-		request:     c.request,
-		response:    c.response,
-		jsonEncoder: c.jsonEncoder,
-		jsonDecoder: c.jsonDecoder,
-		handlerIdx:  c.handlerIdx + 1,
-		next:        next,
-		kv:          c.kv,
-	})
+	if c.next != nil {
+		c.handlerIdx += 1
+		return c.next(c)
+	}
+	return nil
 }
 
 // SetHeaders() set http response headers
@@ -91,27 +110,6 @@ func (c *Context) Writer() io.Writer {
 // JSON is alias for SendJSON
 func (c *Context) JSON(s any) error {
 	return c.SendJSON(s)
-}
-
-// Set sets a key into the request level Key-Value store
-func (c *Context) Set(k string, v any) {
-	if c.kv == nil {
-		c.kv = make(map[string]any, 1)
-	}
-	c.kv[k] = v
-}
-
-// get fetches the value of key in request level KV store
-// in case, key is not present default value is returned
-func (c *Context) Get(k string) any {
-	return c.kv[k]
-}
-
-// lookup fetches the value of key in request level KV store
-// in case default value is not present, ok will be false
-func (c *Context) Lookup(k string) (value any, ok bool) {
-	v, ok := c.kv[k]
-	return v, ok
 }
 
 // :SECTION: request writers
