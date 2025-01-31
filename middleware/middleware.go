@@ -7,7 +7,7 @@ import (
 	"github.com/nxtcoder17/ivy/middleware/logger"
 )
 
-var Logger = logger.New()
+var Logger = logger.New
 
 func MustHaveQueryParams(params ...string) ivy.Handler {
 	return func(c *ivy.Context) error {

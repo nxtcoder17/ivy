@@ -8,3 +8,9 @@ func ToIvyHandler(h http.Handler) Handler {
 		return nil
 	}
 }
+
+func ToHTTPHandler(h Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r)
+	})
+}

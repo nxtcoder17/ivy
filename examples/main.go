@@ -3,17 +3,23 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/nxtcoder17/ivy"
 	"github.com/nxtcoder17/ivy/middleware"
+	"github.com/nxtcoder17/ivy/middleware/logger"
 )
 
 func main() {
 	r := ivy.NewRouter()
 
+	r.Use(logger.New())
+
 	r.Get("/hi", func(c *ivy.Context) error {
+		<-time.After(time.Duration(rand.IntN(3)) * time.Second)
 		return c.SendString("hello")
 	})
 

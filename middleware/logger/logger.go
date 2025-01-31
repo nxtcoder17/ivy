@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/nxtcoder17/ivy"
 )
 
 type ResponseWriter struct {
@@ -43,15 +45,11 @@ var (
 	_ http.ResponseWriter = (*ResponseWriter)(nil)
 )
 
-type HttpLogger struct {
-	*options
-}
-
 type options struct {
 	Logger      *slog.Logger
 	ShowQuery   bool
 	ShowHeaders bool
-	SilentPaths []string
+	RouteFilter func(path string) bool
 }
 
 type option func(opts *options)
@@ -68,9 +66,9 @@ func ShowHeaders(v bool) option {
 	}
 }
 
-func WithSilentPaths(paths []string) option {
+func WithRouteFilter(filter func(p string) bool) option {
 	return func(opts *options) {
-		opts.SilentPaths = paths
+		opts.RouteFilter = filter
 	}
 }
 
@@ -80,48 +78,43 @@ func WithLogger(logger *slog.Logger) option {
 	}
 }
 
-func New(opts ...option) func(next http.Handler) http.Handler {
-	dopts := &options{
+func New(opts ...option) func(c *ivy.Context) error {
+	opt := &options{
 		Logger:      slog.Default(),
 		ShowQuery:   true,
 		ShowHeaders: false,
-		SilentPaths: []string{},
+		RouteFilter: nil,
 	}
 
 	for i := range opts {
-		opts[i](dopts)
+		opts[i](opt)
 	}
 
-	h := &HttpLogger{options: dopts}
-	return h.Middleware
-}
+	return func(c *ivy.Context) error {
+		route := c.URL().Path
 
-func (h *HttpLogger) Middleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for i := range h.SilentPaths {
-			if r.URL.Path == h.SilentPaths[i] {
-				next.ServeHTTP(w, r)
-				return
-			}
+		if opt.RouteFilter != nil && !opt.RouteFilter(route) {
+			return c.Next()
 		}
 
-		lrw := &ResponseWriter{
+		if c.URL().RawQuery != "" {
+			route = fmt.Sprintf("%s?%s", route, c.URL().RawQuery)
+		}
+
+		start := time.Now()
+
+		rw := &ResponseWriter{
 			statusCode: 0,
-			httpRW:     w,
+			httpRW:     c.ResponseWriter(),
 		}
 
-		timestart := time.Now()
+		c.SetResponseWriter(rw)
 
-		route := r.URL.Path
-		if r.URL.RawQuery != "" {
-			route = fmt.Sprintf("%s?%s", route, r.URL.RawQuery)
-		}
-
-		h.Logger.Debug(fmt.Sprintf("❯❯ %s %s", r.Method, route))
+		opt.Logger.Debug(fmt.Sprintf("❯❯ %s %s", c.Request().Method, route))
 		defer func() {
-			h.Logger.Info(fmt.Sprintf("❮❮ %d %s %s took %.2fs", lrw.statusCode, r.Method, route, time.Since(timestart).Seconds()))
+			opt.Logger.Info(fmt.Sprintf("❮❮ %d %s %s took %.2fs", rw.statusCode, c.Request().Method, route, time.Since(start).Seconds()))
 		}()
 
-		next.ServeHTTP(lrw, r)
-	})
+		return c.Next()
+	}
 }
