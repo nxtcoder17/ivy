@@ -3,6 +3,7 @@ package ivy
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/goccy/go-json"
 )
@@ -91,7 +92,17 @@ func (r *Router) Method(method string, path string, handlers ...Handler) {
 }
 
 func (r *Router) Mount(path string, h http.Handler) {
-	r.mux.Handle(path, http.StripPrefix(path, h))
+	if !strings.HasSuffix(path, "/") {
+		path = path + "/"
+	}
+
+	if otherRouter, ok := h.(*Router); ok {
+		otherRouter.middlewares = r.middlewares
+		r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], otherRouter))
+		return
+	}
+
+	r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], h))
 }
 
 func (r *Router) Use(handlers ...Handler) {
