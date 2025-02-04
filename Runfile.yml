@@ -1,0 +1,7 @@
+tasks:
+  test:
+    watch:
+      extensions:
+        - _test.go
+    cmd:
+      - go test -json ./... -v | gotestfmt

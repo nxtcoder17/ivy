@@ -99,10 +99,12 @@ func (r *Router) Mount(path string, h http.Handler) {
 	if otherRouter, ok := h.(*Router); ok {
 		otherRouter.middlewares = r.middlewares
 		r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], otherRouter))
+		r.mux.Handle(path[:len(path)-1], http.StripPrefix(path[:len(path)-1], otherRouter))
 		return
 	}
 
 	r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], h))
+	r.mux.Handle(path[:len(path)-1], http.StripPrefix(path[:len(path)-1], h))
 }
 
 func (r *Router) Use(handlers ...Handler) {

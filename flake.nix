@@ -16,7 +16,7 @@
 
           buildInputs = with pkgs; [
             go
-            # gotestfmt
+            gotestfmt
           ];
 
           shellHook = ''
