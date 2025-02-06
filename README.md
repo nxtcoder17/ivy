@@ -1,4 +1,4 @@
-## IVY: net/http based router implementation with API like express.js or go-fiber
+## IVY: net/http based router implementation with fiber like API
 
 ### Features
 
@@ -12,7 +12,13 @@
 ### Usage
 
 ```go
-router := ivy.NewRouter()
+router := ivy.NewRouter(
+    // optional, if want to change default error handler
+    ivy.WithErrorHandler(func(err error, w http.ResponseWriter, r *http.Request) {
+	    http.Error(w, fmt.Sprintf("[ERROR HANDLER]: %s", err.Error()), 500)
+    }),
+)
+
 
 // for middlewares
 router.Use(func (c *ivy.Context) error {
@@ -30,6 +36,7 @@ router2.Get("/_ping",
 	// middleware 1
 	func(c *ivy.Context) error {
 		logger.Info("INSIDE middleware 1")
+		c.KV.Set("hello", "world")
 		return c.Next()
 	},
 
@@ -41,7 +48,7 @@ router2.Get("/_ping",
 
 	// handler
 	func(c *ivy.Context) error {
-		return c.SendString("OK! from router 2")
+		return c.SendString(fmt.Sprintf("OK! from router 2 (hello = %v)", c.KV.Get("hello")))
 	},
 )
 
@@ -49,5 +56,9 @@ router2.Get("/_ping",
 router.Mount("/v2", router2)
 
 // start server with ivy route, just like mux
-http.ListenAndServe(addr, router)
+http.ListenAndServe(":8080", router)
 ```
+
+### Examples
+
+- [Sub Router](./examples/sub-router)
