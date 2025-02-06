@@ -5,13 +5,16 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/nxtcoder17/ivy"
 	"github.com/nxtcoder17/ivy/middleware"
 )
 
 func main() {
-	r := ivy.NewRouter()
+	r := ivy.NewRouter(ivy.WithErrorHandler(func(err error, w http.ResponseWriter, r *http.Request) {
+		http.Error(w, fmt.Sprintf("[ERROR HANDLER]: %s", err.Error()), 500)
+	}))
 
 	r.Use(middleware.Logger())
 
@@ -38,11 +41,16 @@ func main() {
 
 		// handler
 		func(c *ivy.Context) error {
+			<-time.After(1 * time.Second)
 			return c.SendString(fmt.Sprintf("OK! from router 2 (hello = %v, world = %v)", c.KV.Get("hello"), c.KV.Get("world")))
 		},
 	)
 
 	r.Mount("/v2", r2)
+
+	r.Get("/error", func(c *ivy.Context) error {
+		return fmt.Errorf("handler error")
+	})
 
 	addr := ":8089"
 	slog.Info("http server started", "addr", addr)

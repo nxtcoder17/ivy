@@ -1,7 +1,6 @@
 package ivy
 
 import (
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -40,31 +39,35 @@ func (hf Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 var _ http.Handler = (Handler)(nil)
 
+func (r *Router) chainHandlers(handlers ...Handler) http.HandlerFunc {
+	allHandlers := make([]Handler, 0, len(r.middlewares)+len(handlers))
+	allHandlers = append(allHandlers, r.middlewares...)
+	allHandlers = append(allHandlers, handlers...)
+
+	next := func(c *Context) error {
+		if c.handlerIdx > len(allHandlers) {
+			return nil
+		}
+
+		return allHandlers[c.handlerIdx](c)
+	}
+
+	return func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(req, w)
+		ctx.next = next
+
+		if err := allHandlers[0](ctx); err != nil {
+			r.ErrorHandler(err, w, req)
+		}
+	}
+}
+
 func (r *Router) register(method string, path string, handlers ...Handler) {
 	if handlers == nil {
 		return
 	}
 
-	all := make([]Handler, 0, len(r.middlewares)+len(handlers))
-	all = append(all, r.middlewares...)
-	all = append(all, handlers...)
-
-	next := func(c *Context) error {
-		if c.handlerIdx > len(all) {
-			slog.Warn("middelwares Out-Of-Bounds | no response written", "method", method, "path", path, "len(handlers)", len(all), "current.index", c.handlerIdx)
-		}
-
-		return all[c.handlerIdx](c)
-	}
-
-	r.mux.HandleFunc(method+" "+path, func(w http.ResponseWriter, req *http.Request) {
-		ctx := NewContext(req, w)
-		ctx.next = next
-
-		if err := all[0](ctx); err != nil {
-			r.ErrorHandler(err, w, req)
-		}
-	})
+	r.mux.HandleFunc(method+" "+path, r.chainHandlers(handlers...))
 }
 
 func (r *Router) Get(path string, handlers ...Handler) {
@@ -91,32 +94,27 @@ func (r *Router) Method(method string, path string, handlers ...Handler) {
 	r.register(method, path, handlers...)
 }
 
+func (r *Router) Use(handlers ...Handler) {
+	r.middlewares = append(r.middlewares, handlers...)
+}
+
+// INFO: when mouting another router / http.Handler, we need to ensure that middlewares defined on router (r), are also applied on new handlers
+
 func (r *Router) Mount(path string, h http.Handler) {
 	if !strings.HasSuffix(path, "/") {
 		path = path + "/"
 	}
 
-	if otherRouter, ok := h.(*Router); ok {
-		otherRouter.middlewares = r.middlewares
-		r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], otherRouter))
-		r.mux.Handle(path[:len(path)-1], http.StripPrefix(path[:len(path)-1], otherRouter))
-		return
-	}
-
-	r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], h))
-	r.mux.Handle(path[:len(path)-1], http.StripPrefix(path[:len(path)-1], h))
-}
-
-func (r *Router) Use(handlers ...Handler) {
-	r.middlewares = append(r.middlewares, handlers...)
+	r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], r.chainHandlers(ToIvyHandler(h))))
+	r.mux.Handle(path[:len(path)-1], http.StripPrefix(path[:len(path)-1], r.chainHandlers(ToIvyHandler(h))))
 }
 
 func (r *Router) HandleFunc(path string, handle http.HandlerFunc) {
-	r.mux.HandleFunc(path, handle)
+	r.mux.HandleFunc(path, r.chainHandlers(ToIvyHandler(handle)))
 }
 
 func (r *Router) Handle(path string, handler http.Handler) {
-	r.mux.Handle(path, handler)
+	r.mux.Handle(path, r.chainHandlers(ToIvyHandler(handler)))
 }
 
 var _ http.Handler = (*Router)(nil)
