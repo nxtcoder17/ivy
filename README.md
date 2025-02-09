@@ -12,13 +12,12 @@
 ### Usage
 
 ```go
-router := ivy.NewRouter(
-    // optional, if want to change default error handler
-    ivy.WithErrorHandler(func(err error, w http.ResponseWriter, r *http.Request) {
-	    http.Error(w, fmt.Sprintf("[ERROR HANDLER]: %s", err.Error()), 500)
-    }),
-)
+router := ivy.NewRouter()
 
+// optional, if want to change default error handler
+router.ErrorHandler = func(c *ivy.Context, err error) {
+    c.Status(500).SendString(fmt.Sprintf("[ERROR HANDLER]: %s", err.Error()))
+}
 
 // for middlewares
 router.Use(func (c *ivy.Context) error {

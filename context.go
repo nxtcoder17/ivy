@@ -5,32 +5,63 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type Context struct {
 	request  *http.Request
 	response http.ResponseWriter
 
+	// Alias to request.Context()
+	// It allows user to pass Context in place of context.Context
 	context.Context
 
+	// for middleware management
 	handlerIdx int
 	next       func(c *Context) error
 
 	// per-request key value store
-	KV KV
+	KV *KV
 
 	statusCode int
 }
 
+type requestKey string
+
+var ivyRequestCtxKey = requestKey("ivy.ctx")
+
+func GetRequestCtxKey() requestKey {
+	return ivyRequestCtxKey
+}
+
 func NewContext(r *http.Request, w http.ResponseWriter) *Context {
-	return &Context{
+	ctx := &Context{
 		Context:    r.Context(),
 		request:    r,
 		response:   w,
 		handlerIdx: 0,
 		next:       nil,
-		KV:         KV{m: nil},
+		KV:         &KV{},
 	}
+
+	// INFO: this is needed to ensure that when we are converting from ivy.Handler to http.HandlerFunc, or vice-versa, we can have KV store set by previous middlewares
+	kv := r.Context().Value(ivyRequestCtxKey)
+	if kv != nil {
+		switch v := kv.(type) {
+		case *KV:
+			ctx.KV = v
+			return ctx
+		default:
+			panic("unknown type")
+		}
+	}
+
+	vctx := context.WithValue(ctx.Context, ivyRequestCtxKey, ctx.KV)
+
+	ctx.request = r.WithContext(vctx)
+	ctx.Context = vctx
+
+	return ctx
 }
 
 // Calling Next() calls the next middleware in request handler chain
@@ -96,10 +127,8 @@ func (c *Context) AllCookies() []*http.Cookie {
 
 func (c *Context) ClearCookie(key string) {
 	http.SetCookie(c.response, &http.Cookie{
-		Name:   key,
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
+		Name:    key,
+		Expires: time.Now().Add(-1 * time.Minute),
 	})
 }
 

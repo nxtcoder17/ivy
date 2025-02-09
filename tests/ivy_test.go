@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/nxtcoder17/ivy"
 )
@@ -19,10 +20,11 @@ type Request struct {
 }
 
 type Response struct {
-	StatusCode int
-	Body       []byte
-	Headers    map[string]string
-	cookie     []*http.Cookie
+	StatusCode    int
+	Body          []byte
+	Headers       map[string]string
+	cookie        []*http.Cookie
+	cookieExpired []string
 }
 
 type Test struct{}
@@ -144,7 +146,7 @@ func TestHTTPPrimitives(t *testing.T) {
 			},
 
 			handler: func(c *ivy.Context) error {
-				return c.SendJSON(map[string]string{"message": "hello"})
+				return c.JSON(map[string]string{"message": "hello"})
 			},
 
 			response: Response{
@@ -201,7 +203,7 @@ func TestHTTPPrimitives(t *testing.T) {
 		},
 
 		{
-			name: "8. [HTTP Request] sending cookie",
+			name: "9. [HTTP Request] sending cookie",
 
 			request: Request{
 				Method: http.MethodGet,
@@ -222,6 +224,69 @@ func TestHTTPPrimitives(t *testing.T) {
 			response: Response{
 				StatusCode: http.StatusOK,
 				Body:       []byte("world"),
+			},
+		},
+
+		{
+			name: "10. [HTTP Request] clearing cookie",
+
+			request: Request{
+				Method: http.MethodGet,
+				Route:  "/",
+				Headers: map[string]string{
+					"cookie": "hello=world",
+				},
+			},
+
+			handler: func(c *ivy.Context) error {
+				c.ClearCookie("hello")
+				return c.SendStatus(http.StatusOK)
+			},
+
+			response: Response{
+				StatusCode:    http.StatusOK,
+				Body:          nil,
+				cookieExpired: []string{"hello"},
+			},
+		},
+
+		{
+			name: "10. [HTTP Response] sending headers",
+
+			request: Request{
+				Method: http.MethodGet,
+				Route:  "/",
+			},
+
+			handler: func(c *ivy.Context) error {
+				c.SetHeader("from", "testing router")
+				return c.SendString("hello")
+			},
+
+			response: Response{
+				StatusCode: http.StatusOK,
+				Body:       []byte("hello"),
+			},
+		},
+
+		{
+			name: "11. [HTTP Request] reading header values from request",
+
+			request: Request{
+				Method: http.MethodGet,
+				Route:  "/",
+				Headers: map[string]string{
+					"hi": "hello",
+				},
+			},
+
+			handler: func(c *ivy.Context) error {
+				return c.SendString(c.GetHeaders().Get("hi"))
+			},
+
+			response: Response{
+				StatusCode: http.StatusOK,
+				Body:       []byte("hello"),
 			},
 		},
 	}
@@ -255,6 +320,17 @@ func TestHTTPPrimitives(t *testing.T) {
 			}
 
 			if tt.response.cookie != nil {
+				for _, ce := range tt.response.cookieExpired {
+					c, err := req.Cookie(ce)
+					if err != nil {
+						panic(err)
+					}
+
+					if time.Now().Before(c.Expires) {
+						t.Errorf("expected cookie (%s), to be expired, but it is not", ce)
+					}
+				}
+
 				if fmt.Sprintf("%+v", res.Cookies()) != fmt.Sprintf("%+v", tt.response.cookie) {
 					t.Errorf("expected cookie body\n\t got: %+v\n\twant: %+v\n", res.Cookies(), tt.response.cookie)
 				}
@@ -271,7 +347,7 @@ func TestRouter(t *testing.T) {
 
 		router func(r *ivy.Router)
 
-		errorHandler func(err error, w http.ResponseWriter, r *http.Request)
+		errorHandler ivy.ErrorHandler
 
 		response Response
 	}{
@@ -344,12 +420,13 @@ func TestRouter(t *testing.T) {
 						return fmt.Errorf("this is an error")
 					})
 			},
-			errorHandler: func(err error, w http.ResponseWriter, r *http.Request) {
-				http.Error(w, "| ERROR | "+err.Error(), http.StatusInternalServerError)
+			errorHandler: func(c *ivy.Context, err error) {
+				c.Status(http.StatusInternalServerError).SendString("| ERROR | " + err.Error())
 			},
+
 			response: Response{
 				StatusCode: 500,
-				Body:       []byte("| ERROR | this is an error\n"),
+				Body:       []byte("| ERROR | this is an error"),
 			},
 		},
 
@@ -594,16 +671,46 @@ func TestRouter(t *testing.T) {
 				Body:       []byte("ok"),
 			},
 		},
+
+		{
+			name: "14. [middleware propagation] from parent to child router",
+
+			request: Request{
+				Method: http.MethodGet,
+				Route:  "/v2/test",
+				Headers: map[string]string{
+					"Content-Type": "application/json",
+				},
+			},
+
+			router: func(r *ivy.Router) {
+				r.Use(func(c *ivy.Context) error {
+					c.KV.Set("hello", "world")
+					return c.Next()
+				})
+
+				r2 := ivy.NewRouter()
+				r2.Get("/test", func(c *ivy.Context) error {
+					return c.SendString(c.KV.Get("hello").(string))
+				})
+
+				r.Mount("/v2", r2)
+			},
+
+			response: Response{
+				StatusCode: http.StatusOK,
+				// Body:       []byte("{\"hello\":\"world\"}"),
+				Body: []byte("world"),
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := func() *ivy.Router {
-				if tt.errorHandler != nil {
-					return ivy.NewRouter(ivy.WithErrorHandler(tt.errorHandler))
-				}
-				return ivy.NewRouter()
-			}()
+			r := ivy.NewRouter()
+			if tt.errorHandler != nil {
+				r.ErrorHandler = tt.errorHandler
+			}
 
 			tt.router(r)
 

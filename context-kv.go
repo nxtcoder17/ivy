@@ -1,13 +1,13 @@
 package ivy
 
 type KV struct {
-	m map[string]any
+	m map[any]any
 }
 
 // Set sets a key into the request level Key-Value store
 func (kv *KV) Set(k string, v any) {
 	if kv.m == nil {
-		kv.m = make(map[string]any, 1)
+		kv.m = make(map[any]any, 1)
 	}
 	kv.m[k] = v
 }
@@ -18,9 +18,13 @@ func (kv *KV) Get(k string) any {
 	return kv.m[k]
 }
 
+func (kv *KV) All() map[any]any {
+	return kv.m
+}
+
 // Lookup fetches the value of key in request level KV store
 // in case default value is not present, ok will be false
-func (kv *KV) Lookup(k string) (any, bool) {
+func (kv *KV) Lookup(k any) (any, bool) {
 	v, ok := kv.m[k]
 	return v, ok
 }

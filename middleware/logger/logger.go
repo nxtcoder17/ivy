@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/nxtcoder17/ivy"
@@ -91,14 +92,16 @@ func New(opts ...option) func(c *ivy.Context) error {
 	}
 
 	return func(c *ivy.Context) error {
-		route := c.URL().Path
+		route := c.Request().RequestURI
 
 		if opt.RouteFilter != nil && !opt.RouteFilter(route) {
 			return c.Next()
 		}
 
-		if c.URL().RawQuery != "" {
-			route = fmt.Sprintf("%s?%s", route, c.URL().RawQuery)
+		if !opt.ShowQuery {
+			if idx := strings.IndexByte(route, '?'); idx != -1 {
+				route = route[:idx]
+			}
 		}
 
 		start := time.Now()
