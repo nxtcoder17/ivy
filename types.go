@@ -1,7 +1,5 @@
 package ivy
 
-import "net/http"
-
 type (
-	ErrorHandler func(err error, w http.ResponseWriter, r *http.Request)
+	ErrorHandler func(c *Context, err error)
 )

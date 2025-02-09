@@ -8,9 +8,14 @@ import (
 )
 
 type Router struct {
-	mux *http.ServeMux
-	*options
+	mux         *http.ServeMux
 	middlewares []Handler
+
+	ErrorHandler ErrorHandler
+}
+
+var DefaultErrorHandler ErrorHandler = func(c *Context, err error) {
+	http.Error(c.ResponseWriter(), err.Error(), http.StatusInternalServerError)
 }
 
 // Package level variables, it mainly just introduces a constraint
@@ -56,8 +61,15 @@ func (r *Router) chainHandlers(handlers ...Handler) http.HandlerFunc {
 		ctx := NewContext(req, w)
 		ctx.next = next
 
+		if kv := req.Context().Value(ivyRequestCtxKey); kv != nil {
+			switch v := kv.(type) {
+			case *KV:
+				ctx.KV = v
+			}
+		}
+
 		if err := allHandlers[0](ctx); err != nil {
-			r.ErrorHandler(err, w, req)
+			r.ErrorHandler(ctx, err)
 		}
 	}
 }
@@ -105,6 +117,10 @@ func (r *Router) Mount(path string, h http.Handler) {
 		path = path + "/"
 	}
 
+	if anotherRouter, ok := h.(*Router); ok {
+		anotherRouter.ErrorHandler = r.ErrorHandler
+	}
+
 	r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], r.chainHandlers(ToIvyHandler(h))))
 	r.mux.Handle(path[:len(path)-1], http.StripPrefix(path[:len(path)-1], r.chainHandlers(ToIvyHandler(h))))
 }
@@ -119,39 +135,11 @@ func (r *Router) Handle(path string, handler http.Handler) {
 
 var _ http.Handler = (*Router)(nil)
 
-type options struct {
-	// ErrorHandler handles error returned by an ivy.Handler
-	ErrorHandler
-}
-
-func defaultOptions() *options {
-	return &options{
-		ErrorHandler: func(err error, w http.ResponseWriter, r *http.Request) {
-			http.Error(w, err.Error(), 500)
-		},
-	}
-}
-
-type option func(o *options)
-
-func WithErrorHandler(handler ErrorHandler) option {
-	return func(o *options) {
-		if handler != nil {
-			o.ErrorHandler = handler
-		}
-	}
-}
-
-func NewRouter(opts ...option) *Router {
-	mux := http.NewServeMux()
-
-	options := defaultOptions()
-	for _, op := range opts {
-		op(options)
-	}
-
+// NewRouter() creates an ivy.Router with some defaults
+func NewRouter() *Router {
 	return &Router{
-		mux:     mux,
-		options: options,
+		mux:          http.NewServeMux(),
+		middlewares:  nil,
+		ErrorHandler: DefaultErrorHandler,
 	}
 }

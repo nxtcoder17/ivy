@@ -12,9 +12,10 @@ import (
 )
 
 func main() {
-	r := ivy.NewRouter(ivy.WithErrorHandler(func(err error, w http.ResponseWriter, r *http.Request) {
-		http.Error(w, fmt.Sprintf("[ERROR HANDLER]: %s", err.Error()), 500)
-	}))
+	r := ivy.NewRouter()
+	r.ErrorHandler = func(c *ivy.Context, err error) {
+		c.Status(500).SendString(fmt.Sprintf("[ERROR HANDLER]: %s", err.Error()))
+	}
 
 	r.Use(middleware.Logger())
 
@@ -46,10 +47,14 @@ func main() {
 		},
 	)
 
+	r2.Get("/error", func(c *ivy.Context) error {
+		return fmt.Errorf("error from sub router")
+	})
+
 	r.Mount("/v2", r2)
 
 	r.Get("/error", func(c *ivy.Context) error {
-		return fmt.Errorf("handler error")
+		return fmt.Errorf("error from parent")
 	})
 
 	addr := ":8089"
