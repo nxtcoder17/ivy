@@ -5,7 +5,7 @@ type KV struct {
 }
 
 // Set sets a key into the request level Key-Value store
-func (kv *KV) Set(k string, v any) {
+func (kv *KV) Set(k any, v any) {
 	if kv.m == nil {
 		kv.m = make(map[any]any, 1)
 	}
@@ -14,7 +14,7 @@ func (kv *KV) Set(k string, v any) {
 
 // Get fetches the value of key in request level KV store
 // in case, key is not present default value is returned
-func (kv *KV) Get(k string) any {
+func (kv *KV) Get(k any) any {
 	return kv.m[k]
 }
 
