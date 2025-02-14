@@ -1,10 +1,9 @@
 package ivy
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
-
-	"github.com/goccy/go-json"
 )
 
 type Router struct {
@@ -21,10 +20,10 @@ var DefaultErrorHandler ErrorHandler = func(c *Context, err error) {
 // Package level variables, it mainly just introduces a constraint
 // that there will be same encoders across the package in an application lifecycle
 var (
-	// JSONEncoder defaults to [github.com/goccy/go-json#Marshal](https://pkg.go.dev/github.com/goccy/go-json#Marshal)
+	// JSONEncoder defaults to [encoding/json.Marshal](https://pkg.go.dev/encoding/json#Marshal)
 	JSONEncoder func(v any) ([]byte, error) = json.Marshal
 
-	// JSONDecoder defaults to [github.com/goccy/go-json#Unmarshal](https://pkg.go.dev/github.com/goccy/go-json#Unmarshal)
+	// JSONDecoder defaults to [encoding/json.Unmarshal](https://pkg.go.dev/encoding/json#Unmarshal)
 	JSONDecoder func(b []byte, v any) error = json.Unmarshal
 )
 
