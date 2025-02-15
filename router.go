@@ -67,8 +67,12 @@ func (r *Router) chainHandlers(handlers ...Handler) http.HandlerFunc {
 			}
 		}
 
-		if err := allHandlers[0](ctx); err != nil {
-			r.ErrorHandler(ctx, err)
+		if err := next(ctx); err != nil {
+			if r.ErrorHandler != nil {
+				r.ErrorHandler(ctx, err)
+				return
+			}
+			DefaultErrorHandler(ctx, err)
 		}
 	}
 }
@@ -117,7 +121,9 @@ func (r *Router) Mount(path string, h http.Handler) {
 	}
 
 	if anotherRouter, ok := h.(*Router); ok {
-		anotherRouter.ErrorHandler = r.ErrorHandler
+		if anotherRouter.ErrorHandler == nil {
+			anotherRouter.ErrorHandler = r.ErrorHandler
+		}
 	}
 
 	r.mux.Handle(path, http.StripPrefix(path[:len(path)-1], r.chainHandlers(ToIvyHandler(h))))
@@ -139,6 +145,6 @@ func NewRouter() *Router {
 	return &Router{
 		mux:          http.NewServeMux(),
 		middlewares:  nil,
-		ErrorHandler: DefaultErrorHandler,
+		ErrorHandler: nil,
 	}
 }
