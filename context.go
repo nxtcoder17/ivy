@@ -3,6 +3,7 @@ package ivy
 import (
 	"context"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"time"
@@ -215,5 +216,10 @@ func (c *Context) SendHTML(s []byte) error {
 
 func (c *Context) SendFile(fp string) error {
 	http.ServeFile(c.response, c.request, fp)
+	return nil
+}
+
+func (c *Context) SendFileFS(fs fs.FS, fp string) error {
+	http.ServeFileFS(c.response, c.request, fs, fp)
 	return nil
 }
