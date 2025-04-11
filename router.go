@@ -60,13 +60,6 @@ func (r *Router) chainHandlers(handlers ...Handler) http.HandlerFunc {
 		ctx := NewContext(req, w)
 		ctx.next = next
 
-		if kv := req.Context().Value(ivyRequestCtxKey); kv != nil {
-			switch v := kv.(type) {
-			case *KV:
-				ctx.KV = v
-			}
-		}
-
 		if err := next(ctx); err != nil {
 			if r.ErrorHandler != nil {
 				r.ErrorHandler(ctx, err)

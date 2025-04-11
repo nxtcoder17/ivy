@@ -21,18 +21,11 @@ type Context struct {
 	next       func(c *Context) error
 
 	// per-request key value store
+	// useful to put arbitrary authentication constants, or user information or requestID like fields
 	KV *KV
-
-	statusCode int
 }
 
-type requestKey string
-
-var ivyRequestCtxKey = requestKey("ivy.ctx")
-
-func GetRequestCtxKey() requestKey {
-	return ivyRequestCtxKey
-}
+type ivyContextKey string
 
 func NewContext(r *http.Request, w http.ResponseWriter) *Context {
 	ctx := &Context{
@@ -44,19 +37,20 @@ func NewContext(r *http.Request, w http.ResponseWriter) *Context {
 		KV:         &KV{},
 	}
 
+	kvCtxKey := ivyContextKey("ivy.ctx.kv")
+
 	// INFO: this is needed to ensure that when we are converting from ivy.Handler to http.HandlerFunc, or vice-versa, we can have KV store set by previous middlewares
-	kv := r.Context().Value(ivyRequestCtxKey)
+	kv := r.Context().Value(kvCtxKey)
 	if kv != nil {
 		switch v := kv.(type) {
 		case *KV:
 			ctx.KV = v
-			return ctx
 		default:
-			panic("unknown type")
+			panic("it must not have happened, unknown type")
 		}
 	}
 
-	vctx := context.WithValue(ctx.Context, ivyRequestCtxKey, ctx.KV)
+	vctx := context.WithValue(ctx.Context, kvCtxKey, ctx.KV)
 
 	ctx.request = r.WithContext(vctx)
 	ctx.Context = vctx
@@ -95,6 +89,8 @@ func (c *Context) ResponseWriter() http.ResponseWriter {
 	return c.response
 }
 
+// SetResponseWriter must only be used when you want a custom response writer instead of normal http.ResponseWriter
+// e.g use cases such as request logger
 func (c *Context) SetResponseWriter(rw http.ResponseWriter) {
 	c.response = rw
 }

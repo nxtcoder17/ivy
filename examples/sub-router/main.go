@@ -18,6 +18,11 @@ func main() {
 	}
 
 	r.Use(middleware.Logger())
+	r.Use(func(c *ivy.Context) error {
+		fmt.Println("INSIDE parent router middleware")
+		c.KV.Set("sample", "SAMPLE")
+		return c.Next()
+	})
 
 	r.Get("/_ping", func(c *ivy.Context) error {
 		return c.SendString("hi")
@@ -43,7 +48,7 @@ func main() {
 		// handler
 		func(c *ivy.Context) error {
 			<-time.After(1 * time.Second)
-			return c.SendString(fmt.Sprintf("OK! from router 2 (hello = %v, world = %v)", c.KV.Get("hello"), c.KV.Get("world")))
+			return c.SendString(fmt.Sprintf("OK! from router 2 (hello = %v, world = %v, sample = %v)", c.KV.Get("hello"), c.KV.Get("world"), c.KV.Get("sample")))
 		},
 	)
 

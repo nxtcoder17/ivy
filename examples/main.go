@@ -10,13 +10,12 @@ import (
 
 	"github.com/nxtcoder17/ivy"
 	"github.com/nxtcoder17/ivy/middleware"
-	"github.com/nxtcoder17/ivy/middleware/logger"
 )
 
 func main() {
 	r := ivy.NewRouter()
 
-	r.Use(logger.New())
+	r.Use(middleware.Logger())
 
 	r.Get("/hi", func(c *ivy.Context) error {
 		<-time.After(time.Duration(rand.IntN(3)) * time.Second)
@@ -38,7 +37,7 @@ func main() {
 		return c.Next()
 	}
 
-	r.Get("/hi-qp", middleware.MustHaveQueryParams("message", "dir"), mw, func(c *ivy.Context) error {
+	r.Get("/hi-qp", middleware.RequiredQueryParams("message", "dir"), mw, func(c *ivy.Context) error {
 		return c.SendString(fmt.Sprintf("dir: %s, message: %s", c.KV.Get("dir"), c.QueryParam("message")))
 	})
 

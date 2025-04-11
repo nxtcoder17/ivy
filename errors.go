@@ -17,3 +17,15 @@ func ErrorFormatJSON(err error) map[string]any {
 
 	return map[string]any{"errors": err}
 }
+
+type HTTPError struct {
+	StatusCode int
+	Message    string
+}
+
+// Error implements error.
+func (h *HTTPError) Error() string {
+	panic("unimplemented")
+}
+
+var _ error = (*HTTPError)(nil)
