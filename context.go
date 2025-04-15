@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -21,6 +22,9 @@ type Context struct {
 	handlerIdx int
 	next       func(c *Context) error
 
+	// Logger is in context to allow middlewares to add extra key value pairs to the logging context
+	Logger *slog.Logger
+
 	// per-request key value store
 	// useful to put arbitrary authentication constants, or user information or requestID like fields
 	KV *KV
@@ -28,7 +32,7 @@ type Context struct {
 
 type ivyContextKey string
 
-func NewContext(r *http.Request, w http.ResponseWriter) *Context {
+func newContext(r *http.Request, w http.ResponseWriter) *Context {
 	ctx := &Context{
 		Context:    r.Context(),
 		request:    r,
@@ -36,6 +40,7 @@ func NewContext(r *http.Request, w http.ResponseWriter) *Context {
 		handlerIdx: 0,
 		next:       nil,
 		KV:         &KV{},
+		Logger:     Logger,
 	}
 
 	kvCtxKey := ivyContextKey("ivy.ctx.kv")

@@ -28,16 +28,3 @@ func (kv *KV) Lookup(k any) (any, bool) {
 	v, ok := kv.m[k]
 	return v, ok
 }
-
-func (c *Context) SetRequestID(ID string) {
-	c.KV.Set(ivyContextKey("ivy.ctx.kv.request_id"), ID)
-}
-
-func (c *Context) GetRequestID() string {
-	a, ok := c.KV.Lookup(ivyContextKey("ivy.ctx.kv.request_id"))
-	if !ok {
-		return ""
-	}
-
-	return a.(string)
-}

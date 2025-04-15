@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -11,17 +10,12 @@ import (
 )
 
 type LoggerOptions struct {
-	Logger      *slog.Logger
 	ShowQuery   *bool
 	ShowHeaders *bool
 	RouteFilter func(path string) bool
 }
 
 func (c *LoggerOptions) withDefaultsIfMissing() {
-	if c.Logger == nil {
-		c.Logger = slog.Default()
-	}
-
 	if c.ShowQuery == nil {
 		c.ShowQuery = ivy.Ptr(true)
 	}
@@ -65,17 +59,9 @@ func Logger(loggerOpts ...LoggerOptions) ivy.Handler {
 
 		c.SetResponseWriter(rw)
 
-		logExtras := func() []any {
-			requestID := c.GetRequestID()
-			if requestID == "" {
-				return nil
-			}
-			return []any{"request_id", requestID}
-		}()
-
-		opts.Logger.Debug(fmt.Sprintf("❯❯ %s %s", c.Request().Method, route), logExtras...)
+		c.Logger.Debug(fmt.Sprintf("❯❯ %s %s", c.Request().Method, route))
 		defer func() {
-			opts.Logger.Info(fmt.Sprintf("❮❮ %d %s %s took %.2fs", rw.StatusCode, c.Request().Method, route, time.Since(start).Seconds()), logExtras...)
+			c.Logger.Info(fmt.Sprintf("❮❮ %d %s %s took %s", rw.StatusCode, c.Request().Method, route, time.Since(start).String()))
 		}()
 
 		return c.Next()

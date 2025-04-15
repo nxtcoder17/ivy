@@ -33,6 +33,7 @@ func main() {
 	r2.Get("/_ping",
 		// middleware 1
 		func(c *ivy.Context) error {
+			c.SetRequestID("sample")
 			fmt.Println("INSIDE middleware 1")
 			c.KV.Set("hello", "middleware 1")
 			return c.Next()

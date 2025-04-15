@@ -2,6 +2,7 @@ package ivy
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -25,6 +26,9 @@ var (
 
 	// JSONDecoder defaults to [encoding/json.Unmarshal](https://pkg.go.dev/encoding/json#Unmarshal)
 	JSONDecoder func(b []byte, v any) error = json.Unmarshal
+
+	// Logger defaults to [*slog.Logger](https://pkg.go.dev/log/slog#Logger)
+	Logger *slog.Logger = slog.Default()
 )
 
 // ServeHTTP implements http.Handler.
@@ -38,7 +42,7 @@ type Handler func(c *Context) error
 
 // ServeHTTP implements http.Handler.
 func (hf Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hf(NewContext(r, w))
+	hf(newContext(r, w))
 }
 
 var _ http.Handler = (Handler)(nil)
@@ -57,7 +61,7 @@ func (r *Router) chainHandlers(handlers ...Handler) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, req *http.Request) {
-		ctx := NewContext(req, w)
+		ctx := newContext(req, w)
 		ctx.next = next
 
 		if err := next(ctx); err != nil {
