@@ -15,7 +15,7 @@ type Context struct {
 	response http.ResponseWriter
 
 	// Alias to request.Context()
-	// It allows user to pass Context in place of context.Context
+	// It allows user to pass ivy Context in place of context.Context
 	context.Context
 
 	// for middleware management

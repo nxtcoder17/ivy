@@ -13,7 +13,7 @@ func RequiredQueryParams(params ...string) ivy.Handler {
 		for i := range params {
 			if !q.Has(params[i]) {
 				return &ivy.HTTPError{
-					StatusCode: http.StatusBadRequest,
+					Code: http.StatusBadRequest,
 					Message:    fmt.Sprintf("missing query-param %q", params[i]),
 				}
 			}

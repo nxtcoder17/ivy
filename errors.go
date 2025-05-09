@@ -18,14 +18,32 @@ func ErrorFormatJSON(err error) map[string]any {
 	return map[string]any{"errors": err}
 }
 
-type HTTPError struct {
-	StatusCode int
-	Message    string
+type HTTPError interface {
+	error
+	Code() int
+	Message() string
+}
+
+type httpError struct {
+	code    int
+	message string
 }
 
 // Error implements error.
-func (h *HTTPError) Error() string {
-	panic("unimplemented")
+func (h *httpError) Error() string {
+	return h.message
 }
 
-var _ error = (*HTTPError)(nil)
+func (h *httpError) Code() int {
+	return h.code
+}
+
+func (h *httpError) Message() string {
+	return h.message
+}
+
+var _ HTTPError = (*httpError)(nil)
+
+func NewHTTPError(code int, msg string) HTTPError {
+	return &httpError{code, msg}
+}

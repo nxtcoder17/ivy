@@ -2,6 +2,7 @@ package ivy
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -15,6 +16,11 @@ type Router struct {
 }
 
 var DefaultErrorHandler ErrorHandler = func(c *Context, err error) {
+	var httpError HTTPError
+	if errors.As(err, &httpError) {
+		http.Error(c.ResponseWriter(), err.Error(), httpError.Code())
+		return
+	}
 	http.Error(c.ResponseWriter(), err.Error(), http.StatusInternalServerError)
 }
 
