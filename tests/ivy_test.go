@@ -6,7 +6,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/nxtcoder17/ivy"
@@ -899,4 +902,176 @@ func TestMiddlewareChaining(t *testing.T) {
 			t.Errorf("body: got %q, want %q", data, "done")
 		}
 	})
+}
+
+func TestServeDir(t *testing.T) {
+	// Create temp directory with test file
+	tmpDir := t.TempDir()
+	testContent := "hello from file"
+	if err := os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte(testContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name       string
+		servePath  string
+		request    string
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       "1. [ServeDir] serve file with trailing slash path",
+			servePath:  "/static/",
+			request:    "/static/test.txt",
+			wantStatus: http.StatusOK,
+			wantBody:   testContent,
+		},
+		{
+			name:       "2. [ServeDir] serve file without trailing slash path",
+			servePath:  "/assets",
+			request:    "/assets/test.txt",
+			wantStatus: http.StatusOK,
+			wantBody:   testContent,
+		},
+		{
+			name:       "3. [ServeDir] 404 for non-existent file",
+			servePath:  "/static",
+			request:    "/static/notfound.txt",
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := ivy.NewRouter()
+			r.ServeDir(tt.servePath, tmpDir)
+
+			req := httptest.NewRequest(http.MethodGet, tt.request, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			res := w.Result()
+			defer res.Body.Close()
+
+			if res.StatusCode != tt.wantStatus {
+				t.Errorf("status code: got %d, want %d", res.StatusCode, tt.wantStatus)
+			}
+
+			if tt.wantBody != "" {
+				data, _ := io.ReadAll(res.Body)
+				if string(data) != tt.wantBody {
+					t.Errorf("body: got %q, want %q", data, tt.wantBody)
+				}
+			}
+		})
+	}
+}
+
+func TestServeDirFS(t *testing.T) {
+	testContent := "hello from fstest"
+	memFS := fstest.MapFS{
+		"index.html":    {Data: []byte("<html>index</html>")},
+		"css/style.css": {Data: []byte("body{}")},
+		"js/app.js":     {Data: []byte(testContent)},
+	}
+
+	tests := []struct {
+		name       string
+		servePath  string
+		request    string
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name:       "1. [ServeDirFS] serve index.html via directory",
+			servePath:  "/static",
+			request:    "/static/",
+			wantStatus: http.StatusOK,
+			wantBody:   "<html>index</html>",
+		},
+		{
+			name:       "2. [ServeDirFS] serve nested file",
+			servePath:  "/static",
+			request:    "/static/js/app.js",
+			wantStatus: http.StatusOK,
+			wantBody:   testContent,
+		},
+		{
+			name:       "3. [ServeDirFS] serve css file",
+			servePath:  "/assets/",
+			request:    "/assets/css/style.css",
+			wantStatus: http.StatusOK,
+			wantBody:   "body{}",
+		},
+		{
+			name:       "4. [ServeDirFS] 404 for non-existent file",
+			servePath:  "/static",
+			request:    "/static/notfound.js",
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := ivy.NewRouter()
+			r.ServeDirFS(tt.servePath, memFS)
+
+			req := httptest.NewRequest(http.MethodGet, tt.request, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			res := w.Result()
+			defer res.Body.Close()
+
+			if res.StatusCode != tt.wantStatus {
+				t.Errorf("status code: got %d, want %d", res.StatusCode, tt.wantStatus)
+			}
+
+			if tt.wantBody != "" {
+				data, _ := io.ReadAll(res.Body)
+				if string(data) != tt.wantBody {
+					t.Errorf("body: got %q, want %q", data, tt.wantBody)
+				}
+			}
+		})
+	}
+}
+
+func TestServeDirWithMiddleware(t *testing.T) {
+	memFS := fstest.MapFS{
+		"test.txt": {Data: []byte("content")},
+	}
+
+	r := ivy.NewRouter()
+
+	middlewareCalled := false
+	r.Use(func(c *ivy.Context) error {
+		middlewareCalled = true
+		c.SetHeader("X-Middleware", "applied")
+		return c.Next()
+	})
+
+	r.ServeDirFS("/static", memFS)
+
+	req := httptest.NewRequest(http.MethodGet, "/static/test.txt", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if !middlewareCalled {
+		t.Error("middleware was not called")
+	}
+
+	if res.Header.Get("X-Middleware") != "applied" {
+		t.Errorf("middleware header not set: got %q", res.Header.Get("X-Middleware"))
+	}
+
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("status code: got %d, want %d", res.StatusCode, http.StatusOK)
+	}
 }

@@ -3,6 +3,7 @@ package ivy
 import (
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -142,6 +143,28 @@ func (r *Router) HandleFunc(path string, handle http.HandlerFunc) {
 
 func (r *Router) Handle(path string, handler http.Handler) {
 	r.mux.Handle(path, r.chainHandlers(ToIvyHandler(handler)))
+}
+
+// ServeDir serves static files from a filesystem directory
+func (r *Router) ServeDir(path string, dir string) {
+	r.serveFiles(path, http.Dir(dir))
+}
+
+// ServeDirFS serves static files from an fs.FS
+func (r *Router) ServeDirFS(path string, fsys fs.FS) {
+	r.serveFiles(path, http.FS(fsys))
+}
+
+func (r *Router) serveFiles(path string, fsys http.FileSystem) {
+	if !strings.HasSuffix(path, "/") {
+		path = path + "/"
+	}
+
+	fileServer := http.FileServer(fsys)
+	handler := http.StripPrefix(path[:len(path)-1], fileServer)
+
+	r.mux.Handle(path, r.chainHandlers(ToIvyHandler(handler)))
+	r.mux.Handle(path[:len(path)-1], r.chainHandlers(ToIvyHandler(handler)))
 }
 
 var _ http.Handler = (*Router)(nil)
