@@ -53,13 +53,16 @@ func (hf Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 var _ http.Handler = (Handler)(nil)
 
+// INFO: Express-style middleware chaining. Combines global middlewares (r.Use) + route handlers into single chain.
+// Execution: each handler calls c.Next() to invoke next in chain (like Express's next()).
+// Uses index-based traversal - c.Next() increments handlerIdx, boundary check prevents overflow when final handler calls Next().
 func (r *Router) chainHandlers(handlers ...Handler) http.HandlerFunc {
 	allHandlers := make([]Handler, 0, len(r.middlewares)+len(handlers))
 	allHandlers = append(allHandlers, r.middlewares...)
 	allHandlers = append(allHandlers, handlers...)
 
 	next := func(c *Context) error {
-		if c.handlerIdx > len(allHandlers) {
+		if c.handlerIdx >= len(allHandlers) {
 			return nil
 		}
 

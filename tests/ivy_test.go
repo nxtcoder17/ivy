@@ -751,3 +751,152 @@ func TestRouter(t *testing.T) {
 		})
 	}
 }
+
+func TestMiddlewareChaining(t *testing.T) {
+	t.Run("final handler calling Next() should not panic", func(t *testing.T) {
+		r := ivy.NewRouter()
+
+		r.Get("/", func(c *ivy.Context) error {
+			c.SendString("OK")
+			return c.Next() // Final handler calling Next() - should be safe
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		if res.StatusCode != http.StatusOK {
+			t.Errorf("status code: got %d, want %d", res.StatusCode, http.StatusOK)
+		}
+
+		data, _ := io.ReadAll(res.Body)
+		if string(data) != "OK" {
+			t.Errorf("body: got %q, want %q", data, "OK")
+		}
+	})
+
+	t.Run("middleware chain execution order", func(t *testing.T) {
+		r := ivy.NewRouter()
+
+		var order []int
+
+		r.Use(func(c *ivy.Context) error {
+			order = append(order, 1)
+			return c.Next()
+		})
+
+		r.Use(func(c *ivy.Context) error {
+			order = append(order, 2)
+			return c.Next()
+		})
+
+		r.Get("/",
+			func(c *ivy.Context) error {
+				order = append(order, 3)
+				return c.Next()
+			},
+			func(c *ivy.Context) error {
+				order = append(order, 4)
+				return c.SendString("OK")
+			},
+		)
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		expected := []int{1, 2, 3, 4}
+		if len(order) != len(expected) {
+			t.Errorf("execution order length: got %d, want %d", len(order), len(expected))
+		}
+		for i, v := range expected {
+			if order[i] != v {
+				t.Errorf("execution order[%d]: got %d, want %d", i, order[i], v)
+			}
+		}
+	})
+
+	t.Run("middleware can short-circuit chain", func(t *testing.T) {
+		r := ivy.NewRouter()
+
+		handlerCalled := false
+
+		r.Use(func(c *ivy.Context) error {
+			return c.SendString("blocked") // Don't call Next()
+		})
+
+		r.Get("/", func(c *ivy.Context) error {
+			handlerCalled = true
+			return c.SendString("OK")
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		if handlerCalled {
+			t.Error("handler should not have been called")
+		}
+
+		data, _ := io.ReadAll(res.Body)
+		if string(data) != "blocked" {
+			t.Errorf("body: got %q, want %q", data, "blocked")
+		}
+	})
+
+	t.Run("all handlers calling Next() at end of chain", func(t *testing.T) {
+		r := ivy.NewRouter()
+
+		r.Use(func(c *ivy.Context) error {
+			c.KV.Set("mw1", true)
+			return c.Next()
+		})
+
+		r.Use(func(c *ivy.Context) error {
+			c.KV.Set("mw2", true)
+			return c.Next()
+		})
+
+		r.Get("/",
+			func(c *ivy.Context) error {
+				c.KV.Set("h1", true)
+				return c.Next()
+			},
+			func(c *ivy.Context) error {
+				c.KV.Set("h2", true)
+				return c.Next()
+			},
+			func(c *ivy.Context) error {
+				c.KV.Set("h3", true)
+				c.SendString("done")
+				return c.Next()
+			},
+		)
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		if res.StatusCode != http.StatusOK {
+			t.Errorf("status code: got %d, want %d", res.StatusCode, http.StatusOK)
+		}
+
+		data, _ := io.ReadAll(res.Body)
+		if string(data) != "done" {
+			t.Errorf("body: got %q, want %q", data, "done")
+		}
+	})
+}
