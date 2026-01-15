@@ -1,0 +1,11 @@
+nixpkgs:
+  default: 050e09e091117c3d7328c7b2b7b577492c43c134
+packages:
+  - go
+  - jujutsu
+  - name: run
+    sources:
+      linux/amd64:
+        url: "https://github.com/nxtcoder17/Runfile/releases/download/v1.5.4/run-linux-amd64"
+        sha256: 8ffd2af9c35db7696d148a428277a7bd9197d46109e59281ad17ec91a9613b97
+
