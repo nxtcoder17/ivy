@@ -1,8 +1,10 @@
 package ivy
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
-	"time"
+	"strings"
 )
 
 func (c *Context) SetSSEHeaders() {
@@ -17,9 +19,21 @@ func (c *Context) SetSSEHeaders() {
 
 // SendSSEvent writes a standard SSE event frame
 func (c *Context) SendSSEvent(eventType string, data []byte) error {
-	payload := fmt.Sprintf("event: %s\nid: %d\ndata: %s\n\n", eventType, time.Now().UnixMilli(), data)
-	_, err := c.response.Write([]byte(payload))
-	if err != nil {
+	if strings.ContainsAny(eventType, "\n\r") {
+		return errors.New("sse: event type must not contain newlines")
+	}
+
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "event: %s\n", eventType)
+
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		line = bytes.TrimSuffix(line, []byte("\r"))
+		fmt.Fprintf(&buf, "data: %s\n", line)
+	}
+
+	buf.WriteByte('\n')
+
+	if _, err := c.response.Write(buf.Bytes()); err != nil {
 		return err
 	}
 	c.Flush()

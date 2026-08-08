@@ -14,7 +14,7 @@ func TestSSEvent(t *testing.T) {
 	r := ivy.NewRouter()
 	r.Get("/events", func(c *ivy.Context) error {
 		c.SetSSEHeaders()
-		return c.SendSSEvent("message", []byte(`{"message":"hello"}`))
+		return c.SendSSEvent("message", []byte("first\nsecond\r\nthird"))
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/events", nil)
@@ -49,7 +49,8 @@ func TestSSEvent(t *testing.T) {
 	if !bytes.Contains(body, []byte("event: message\n")) {
 		t.Errorf("event type missing from body: %q", body)
 	}
-	if !bytes.Contains(body, []byte("data: {\"message\":\"hello\"}\n\n")) {
-		t.Errorf("data missing from body: %q", body)
+	expectedData := []byte("data: first\ndata: second\ndata: third\n\n")
+	if !bytes.Contains(body, expectedData) {
+		t.Errorf("data missing from body: got %q, want data frame %q", body, expectedData)
 	}
 }
