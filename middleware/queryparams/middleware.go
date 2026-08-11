@@ -1,4 +1,4 @@
-package middleware
+package queryparams
 
 import (
 	"fmt"
@@ -7,7 +7,13 @@ import (
 	"github.com/nxtcoder17/ivy"
 )
 
-func RequiredQueryParams(params ...string) ivy.Handler {
+// Required returns a handler that rejects the request with 400 Bad Request when
+// any of the given query params is missing.
+//
+// Example:
+//
+//	r.Get("/search", queryparams.Required("q"), func(c *ivy.Context) error { ... })
+func Required(params ...string) ivy.Handler {
 	return func(c *ivy.Context) error {
 		q := c.URL().Query()
 		for i := range params {

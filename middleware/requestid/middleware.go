@@ -1,4 +1,4 @@
-package middleware
+package requestid
 
 import (
 	"bytes"
@@ -24,7 +24,8 @@ func generateRequestID() string {
 	return hex.EncodeToString(hash[:])[:8]
 }
 
-func RequestID(generatorFn ...func() string) ivy.Handler {
+// New returns a middleware that attaches a request ID to the request context and logger.
+func New(generatorFn ...func() string) ivy.Handler {
 	gen := func() func() string {
 		if len(generatorFn) > 0 {
 			return generatorFn[0]

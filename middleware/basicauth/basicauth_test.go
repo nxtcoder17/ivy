@@ -1,4 +1,4 @@
-package middleware
+package basicauth
 
 import (
 	"encoding/base64"
@@ -9,9 +9,9 @@ import (
 	"github.com/nxtcoder17/ivy"
 )
 
-func TestBasicAuth_ValidCredentials(t *testing.T) {
+func TestNew_ValidCredentials(t *testing.T) {
 	r := ivy.NewRouter()
-	r.Use(BasicAuth("Test Realm", map[string]string{
+	r.Use(New("Test Realm", map[string]string{
 		"admin": "secret",
 	}))
 	r.Get("/protected", func(c *ivy.Context) error {
@@ -32,9 +32,9 @@ func TestBasicAuth_ValidCredentials(t *testing.T) {
 	}
 }
 
-func TestBasicAuth_InvalidPassword(t *testing.T) {
+func TestNew_InvalidPassword(t *testing.T) {
 	r := ivy.NewRouter()
-	r.Use(BasicAuth("Test Realm", map[string]string{
+	r.Use(New("Test Realm", map[string]string{
 		"admin": "secret",
 	}))
 	r.Get("/protected", func(c *ivy.Context) error {
@@ -55,9 +55,9 @@ func TestBasicAuth_InvalidPassword(t *testing.T) {
 	}
 }
 
-func TestBasicAuth_InvalidUsername(t *testing.T) {
+func TestNew_InvalidUsername(t *testing.T) {
 	r := ivy.NewRouter()
-	r.Use(BasicAuth("Test Realm", map[string]string{
+	r.Use(New("Test Realm", map[string]string{
 		"admin": "secret",
 	}))
 	r.Get("/protected", func(c *ivy.Context) error {
@@ -75,9 +75,9 @@ func TestBasicAuth_InvalidUsername(t *testing.T) {
 	}
 }
 
-func TestBasicAuth_NoCredentials(t *testing.T) {
+func TestNew_NoCredentials(t *testing.T) {
 	r := ivy.NewRouter()
-	r.Use(BasicAuth("Test Realm", map[string]string{
+	r.Use(New("Test Realm", map[string]string{
 		"admin": "secret",
 	}))
 	r.Get("/protected", func(c *ivy.Context) error {
@@ -97,9 +97,9 @@ func TestBasicAuth_NoCredentials(t *testing.T) {
 	}
 }
 
-func TestBasicAuth_MalformedHeader(t *testing.T) {
+func TestNew_MalformedHeader(t *testing.T) {
 	r := ivy.NewRouter()
-	r.Use(BasicAuth("Test Realm", map[string]string{
+	r.Use(New("Test Realm", map[string]string{
 		"admin": "secret",
 	}))
 	r.Get("/protected", func(c *ivy.Context) error {
@@ -117,9 +117,9 @@ func TestBasicAuth_MalformedHeader(t *testing.T) {
 	}
 }
 
-func TestBasicAuth_MultipleUsers(t *testing.T) {
+func TestNew_MultipleUsers(t *testing.T) {
 	r := ivy.NewRouter()
-	r.Use(BasicAuth("Test Realm", map[string]string{
+	r.Use(New("Test Realm", map[string]string{
 		"admin": "adminpass",
 		"user":  "userpass",
 	}))

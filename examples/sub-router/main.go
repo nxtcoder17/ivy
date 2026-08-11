@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/nxtcoder17/ivy"
-	"github.com/nxtcoder17/ivy/middleware"
+	"github.com/nxtcoder17/ivy/middleware/logger"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 		c.Status(500).SendString(fmt.Sprintf("[ERROR HANDLER]: %s", err.Error()))
 	}
 
-	r.Use(middleware.Logger())
+	r.Use(logger.New())
 	r.Use(func(c *ivy.Context) error {
 		fmt.Println("INSIDE parent router middleware")
 		c.KV.Set("sample", "SAMPLE")

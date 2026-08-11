@@ -8,4 +8,6 @@ packages:
       linux/amd64:
         url: "https://github.com/nxtcoder17/Runfile/releases/download/v1.5.4/run-linux-amd64"
         sha256: 8ffd2af9c35db7696d148a428277a7bd9197d46109e59281ad17ec91a9613b97
-
+      darwin/arm64:
+        url: "https://github.com/nxtcoder17/Runfile/releases/download/v1.5.4/run-darwin-arm64"
+        sha256: sha256-iltkmz3G2zeSs04La1xB1IcvfzG2g6ssisET5skhs2U=
