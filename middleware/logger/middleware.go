@@ -1,4 +1,4 @@
-package middleware
+package logger
 
 import (
 	"fmt"
@@ -6,16 +6,15 @@ import (
 	"time"
 
 	"github.com/nxtcoder17/ivy"
-	"github.com/nxtcoder17/ivy/middleware/internal/logger"
 )
 
-type LoggerOptions struct {
+type Options struct {
 	ShowQuery   *bool
 	ShowHeaders *bool
 	RouteFilter func(path string) bool
 }
 
-func (c *LoggerOptions) withDefaultsIfMissing() {
+func (c *Options) withDefaultsIfMissing() {
 	if c.ShowQuery == nil {
 		c.ShowQuery = ivy.Ptr(true)
 	}
@@ -29,22 +28,23 @@ func (c *LoggerOptions) withDefaultsIfMissing() {
 	}
 }
 
-func Logger(loggerOpts ...LoggerOptions) ivy.Handler {
-	var opts LoggerOptions
-	if len(loggerOpts) > 0 {
-		opts = loggerOpts[0]
+// New returns a request logging middleware.
+func New(opts ...Options) ivy.Handler {
+	var o Options
+	if len(opts) > 0 {
+		o = opts[0]
 	}
 
-	opts.withDefaultsIfMissing()
+	o.withDefaultsIfMissing()
 
 	return func(c *ivy.Context) error {
 		route := c.Request().RequestURI
 
-		if opts.RouteFilter != nil && !opts.RouteFilter(route) {
+		if o.RouteFilter != nil && !o.RouteFilter(route) {
 			return c.Next()
 		}
 
-		if *opts.ShowQuery {
+		if *o.ShowQuery {
 			if idx := strings.IndexByte(route, '?'); idx != -1 {
 				route = route[:idx]
 			}
@@ -52,7 +52,7 @@ func Logger(loggerOpts ...LoggerOptions) ivy.Handler {
 
 		start := time.Now()
 
-		rw := &logger.ResponseWriter{
+		rw := &responseWriter{
 			StatusCode: 0,
 			HttpRW:     c.ResponseWriter(),
 		}

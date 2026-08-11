@@ -58,6 +58,45 @@ router.Mount("/v2", router2)
 http.ListenAndServe(":8080", router)
 ```
 
+### Middlewares
+
+Middlewares live in their own sub-packages under `middleware/`, each exposing a `New()` constructor (and occasionally typed accessors, like `sse.Stream`).
+
+```go
+import (
+    "github.com/nxtcoder17/ivy"
+    "github.com/nxtcoder17/ivy/middleware/basicauth"
+    "github.com/nxtcoder17/ivy/middleware/logger"
+    "github.com/nxtcoder17/ivy/middleware/queryparams"
+    "github.com/nxtcoder17/ivy/middleware/requestid"
+    "github.com/nxtcoder17/ivy/middleware/sse"
+)
+
+router := ivy.NewRouter()
+
+router.Use(requestid.New())
+router.Use(logger.New())
+
+// basic auth on the whole router
+router.Use(basicauth.New("Restricted", map[string]string{
+    "admin": "secret",
+}))
+
+// query param validation, scoped to a single route
+router.Get("/search", queryparams.Required("q"), func(c *ivy.Context) error {
+    return c.SendString("searching...")
+})
+
+// server-sent events
+router.Get("/events", sse.New(), func(c *ivy.Context) error {
+    stream, err := sse.Stream(c)
+    if err != nil {
+        return err
+    }
+    return stream.SendEvent("message", []byte("hello"))
+})
+```
+
 ### Examples
 
 - [Sub Router](./examples/sub-router)
