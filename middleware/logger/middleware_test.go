@@ -87,7 +87,7 @@ func TestMiddleware_RouteFilterSkipsLogging(t *testing.T) {
 	}
 }
 
-func TestMiddleware_ShowQuery(t *testing.T) {
+func TestMiddleware_StripsQueryByDefault(t *testing.T) {
 	// default: query string is stripped from the logged route
 	r, logs := newTestRouter(t)
 	r.Get("/search", func(c *ivy.Context) error {
@@ -107,8 +107,8 @@ func TestMiddleware_ShowQuery(t *testing.T) {
 	}
 }
 
-func TestMiddleware_ShowQueryDisabled(t *testing.T) {
-	r, logs := newTestRouter(t, Options{ShowQuery: ivy.Ptr(false)})
+func TestMiddleware_ShowQueryEnabled(t *testing.T) {
+	r, logs := newTestRouter(t, Options{ShowQuery: ivy.Ptr(true)})
 	r.Get("/search", func(c *ivy.Context) error {
 		return c.SendString("ok")
 	})

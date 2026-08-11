@@ -9,6 +9,9 @@ import (
 )
 
 type Options struct {
+	// ShowQuery controls whether the query string is included in the logged
+	// route. When false (the default), the query string is stripped from the
+	// log line.
 	ShowQuery   *bool
 	ShowHeaders *bool
 	RouteFilter func(path string) bool
@@ -16,7 +19,7 @@ type Options struct {
 
 func (c *Options) withDefaultsIfMissing() {
 	if c.ShowQuery == nil {
-		c.ShowQuery = ivy.Ptr(true)
+		c.ShowQuery = ivy.Ptr(false)
 	}
 
 	if c.ShowHeaders == nil {
@@ -44,7 +47,7 @@ func New(opts ...Options) ivy.Handler {
 			return c.Next()
 		}
 
-		if *o.ShowQuery {
+		if !*o.ShowQuery {
 			if idx := strings.IndexByte(route, '?'); idx != -1 {
 				route = route[:idx]
 			}
